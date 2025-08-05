@@ -1,0 +1,125 @@
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local loadingGui = playerGui:WaitForChild("LoadingGui")
+local fadeFrame = loadingGui:WaitForChild("FadeFrame")
+local statusLabel = fadeFrame:WaitForChild("StatusLabel")
+local progressLabel = fadeFrame:WaitForChild("ProgressLabel")
+
+local mainMenu = playerGui:WaitForChild("MainMenuGui")
+
+local lighting = game:GetService("Lighting")
+local tweenService = game:GetService("TweenService")
+local contentProvider = game:GetService("ContentProvider")
+
+-- CAMERA: Set to main menu view
+local menuCamera = workspace:WaitForChild("MenuCamera")
+workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
+workspace.CurrentCamera.CFrame = menuCamera.CFrame
+
+-- PLAYER CONTROL LOCK
+player.CameraMode = Enum.CameraMode.LockFirstPerson
+game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
+player.CharacterAdded:Connect(function(char)
+	char:WaitForChild("Humanoid").WalkSpeed = 0
+	char:WaitForChild("Humanoid").JumpPower = 0
+end)
+if player.Character then
+	player.Character:WaitForChild("Humanoid").WalkSpeed = 0
+	player.Character:WaitForChild("Humanoid").JumpPower = 0
+end
+
+-- MUSIC SETUP
+local sound = Instance.new("Sound")
+sound.SoundId = "rbxassetid://97550023700135"
+sound.Volume = 0
+sound.Looped = true
+sound.Parent = workspace
+
+-- TWEEN FUNCTION
+local function tween(obj, goal, time)
+	local t = tweenService:Create(obj, TweenInfo.new(time, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal)
+	t:Play()
+	return t
+end
+
+-- STEP 1: Show "Loading" and preload assets
+statusLabel.Text = "Loading"
+
+local menuMap = workspace:WaitForChild("MenuMap")
+
+-- Gather preloadable assets
+local assetsToLoad = {}
+for _, descendant in ipairs(menuMap:GetDescendants()) do
+	if descendant:IsA("BasePart") or descendant:IsA("Decal") or descendant:IsA("Texture") or descendant:IsA("ImageLabel") or descendant:IsA("ImageButton") or descendant:IsA("MeshPart") or descendant:IsA("Sound") then
+		table.insert(assetsToLoad, descendant)
+	end
+end
+
+-- Fake loading percentage
+local totalAssets = #assetsToLoad
+local loadedCount = 0
+
+task.spawn(function()
+	while loadedCount < totalAssets do
+		local percent = math.floor((loadedCount / totalAssets) * 100)
+		progressLabel.Text = percent .. "%"
+		task.wait(0.03)
+	end
+	progressLabel.Text = "100%"
+end)
+
+contentProvider:PreloadAsync(assetsToLoad)
+loadedCount = totalAssets
+task.wait(0.5)
+
+-- STEP 2: Show "Loading complete"
+statusLabel.Text = "Loading complete"
+task.wait(1)
+
+-- STEP 3: Disable StatusLabel, begin fade to white
+statusLabel.Visible = false
+progressLabel.Visible = false
+tween(fadeFrame, {BackgroundColor3 = Color3.new(1, 1, 1)}, 0.5)
+task.wait(0.6)
+
+-- STEP 4: Show Main Menu & fade music in
+mainMenu.Enabled = true
+sound:Play()
+tween(sound, {Volume = 0.3}, 2)
+
+-- STEP 5: Fade out to reveal main menu
+tween(fadeFrame, {BackgroundTransparency = 1}, 1.5)
+task.wait(1.6)
+
+-- STEP 6: Disable LoadingGui
+loadingGui.Enabled = false
+
+-- === MOUSE-BASED CAMERA SWAY === 
+local runService = game:GetService("RunService")
+local userInputService = game:GetService("UserInputService")
+
+local swayAmount = 2 -- how far the camera sways in studs
+local swaySpeed = 5 -- higher = snappier sway
+local baseCFrame = menuCamera.CFrame -- original static camera CFrame
+
+runService:BindToRenderStep("MenuCameraSway", Enum.RenderPriority.Camera.Value + 1, function()
+	if not mainMenu.Enabled then return end
+
+	local mouseLocation = userInputService:GetMouseLocation()
+	local viewportSize = workspace.CurrentCamera.ViewportSize
+
+	-- Normalize to -1 to 1
+	local xPercent = ((mouseLocation.X / viewportSize.X) - 0.5) * 2
+	local yPercent = ((mouseLocation.Y / viewportSize.Y) - 0.5) * 2
+
+	-- Invert Y axis for intuitive sway
+	yPercent = -yPercent
+
+	-- Apply offset relative to camera look vector
+	local offset = Vector3.new(xPercent * swayAmount, yPercent * swayAmount, 0)
+	local targetCFrame = baseCFrame * CFrame.new(offset)
+
+	-- Smooth tweened motion toward target
+	workspace.CurrentCamera.CFrame = workspace.CurrentCamera.CFrame:Lerp(targetCFrame, 0.1 * swaySpeed * runService.RenderStepped:Wait())
+end)
