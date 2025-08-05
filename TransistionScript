@@ -1,0 +1,80 @@
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local mainMenu = script.Parent
+local savesGui = playerGui:WaitForChild("SavesGui")
+local characterEditorGui = playerGui:WaitForChild("CharacterEditorGui")
+
+local mainFrame = mainMenu:WaitForChild("MainMenuFrame")
+local startButton = mainFrame:WaitForChild("StartButton")
+local backButton = savesGui:WaitForChild("BackButton")
+
+local userInputService = game:GetService("UserInputService")
+local runService = game:GetService("RunService")
+
+local blur = game.Lighting:WaitForChild("MenuBlur")
+
+-- === UNIVERSAL BUTTON SOUND EFFECTS ===
+
+-- Sound IDs
+local hoverSoundId = "rbxassetid://6042053626"
+local clickSoundId = "rbxassetid://87437544236708"
+
+-- Create reusable sound instances
+local hoverSound = Instance.new("Sound")
+hoverSound.SoundId = hoverSoundId
+hoverSound.Volume = 0.5
+hoverSound.Name = "HoverSound"
+hoverSound.Parent = mainMenu
+
+local clickSound = Instance.new("Sound")
+clickSound.SoundId = clickSoundId
+clickSound.Volume = 0.7
+clickSound.Name = "ClickSound"
+clickSound.Parent = mainMenu
+
+-- Function to apply hover/click sounds to any button
+local function applyButtonSounds(button)
+	button.MouseEnter:Connect(function()
+		hoverSound:Play()
+	end)
+	button.MouseButton1Click:Connect(function()
+		clickSound:Play()
+	end)
+end
+
+-- Apply to all buttons inside MainMenuFrame
+for _, obj in pairs(mainFrame:GetDescendants()) do
+	if obj:IsA("TextButton") or obj:IsA("ImageButton") then
+		applyButtonSounds(obj)
+	end
+end
+
+for _, obj in pairs(savesGui:GetDescendants()) do
+	if obj:IsA("TextButton") or obj:IsA("ImageButton") then
+		applyButtonSounds(obj)
+	end
+end
+
+for _, obj in pairs(characterEditorGui:GetDescendants()) do
+	if obj:IsA("TextButton") or obj:IsA("ImageButton") then
+		applyButtonSounds(obj)
+	end
+end
+
+-- Apply to BackButton too
+applyButtonSounds(backButton)
+
+-- === START BUTTON FUNCTIONALITY ===
+startButton.MouseButton1Click:Connect(function()
+	mainMenu.Enabled = false
+	savesGui.Enabled = true
+	blur.Enabled = true
+end)
+
+-- === BACK BUTTON FUNCTIONALITY ===
+backButton.MouseButton1Click:Connect(function()
+	savesGui.Enabled = false
+	mainMenu.Enabled = true
+	blur.Enabled = false
+end)
